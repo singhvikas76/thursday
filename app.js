@@ -1,99 +1,104 @@
 const express = require('express');
+const mongoose = require('mongoose');
+const Product = require('./models/Product');
+require("dotenv").config();
+
 const app = express();
 
 app.use(express.json());
 
-let products = [
-    {
-        id: 1,
-        name: "p1",
-        price: 99
-    },
-    {
-        id: 2,
-        name: "p2",
-        price: 88
-    },
-    {
-        id: 3,
-        name: "p3",
-        price: 77
+//Connection with MONGO DB Database
+async function connectDB(){
+    try{
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log("Connection Sucess");
+    }catch(error){
+        console.log("Something went wrong");
     }
-];
+    
+}
+connectDB();
 
+// get all products
+app.get("/api/products", async (req, res) => {
 
-// GET ALL PRODUCTS
-app.get("/api/products", (req, res) => {
+    const products = await Product.find();
+
     res.json(products);
+
 });
 
-// CREATE PRODUCT
-app.post("/api/products", (req, res) => {
+//get product by id
+app.get("/api/products/:id", async (req, res) => {
 
-    const newProduct = {
-        id: products.length + 1,
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+        return res.status(404).json({
+            message: "Product not found"
+        });
+    }
+
+    res.json(product);
+
+});
+
+// Insert new Product
+app.post("/api/products", async (req, res) => {
+
+    const product = new Product({
         name: req.body.name,
         price: req.body.price
-    };
-
-    products.push(newProduct);
-
-    res.status(201).json({
-        message: "Product Created",
-        product: newProduct
     });
+
+    const savedProduct = await product.save();
+
+    res.status(201).json(savedProduct);
+
 });
 
-// GET SINGLE PRODUCT
-app.get("/api/products/:id", (req,res)=>{
-    const id = parseInt(req.params.id);
-    const product = products.find(p => p.id === id);
+// update a product
+app.put("/api/products/:id", async (req, res) => {
 
-    if(!product){
+    const product = await Product.findByIdAndUpdate(
+        req.params.id,
+        {
+            name: req.body.name,
+            price: req.body.price
+        },
+        {
+            new: true
+        }
+    );
+
+    if (!product) {
         return res.status(404).json({
-            message : "No product Found"
+            message: "Product not found"
         });
     }
+
     res.json(product);
+
 });
 
+//delete a product
+app.delete("/api/products/:id", async (req, res) => {
 
-//update product
-app.put("/api/products/:id", (req,res)=>{
-    const id = parseInt(req.params.id);
-    const product = products.find(p => p.id === id);
-    if(!product){
+    const product = await Product.findByIdAndDelete(req.params.id);
+
+    if (!product) {
         return res.status(404).json({
-            message : "Product does not exist"
+            message: "Product not found"
         });
     }
-    product.name = req.body.name;
-    product.price = req.body.price;
 
     res.json({
-        message : "product updated",
-        product : product
-    })
-});
-
-//delete product
-app.delete("/api/products/:id",(req,res)=>{
-    const id = parseInt(req.params.id);
-    const productIndex = products.findIndex(p => p.id === id);
-
-    if(productIndex === -1){
-        return res.status(404).json({
-            message : "Product not found"
-        })
-    }
-    const deletedProduct = products.splice(productIndex,1);
-    res.json({
-        message : "Product deleted",
-        Product : deletedProduct[0]
+        message: "Product deleted"
     });
+
 });
 
 
-app.listen(3000, () => {
+app.listen(process.env.PORT, () => {
     console.log("Server is running...");
 });
